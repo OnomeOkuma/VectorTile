@@ -30,11 +30,14 @@ public class VectorTile {
 		this.encoder = new VectorTileEncoder();
 	}
 
+	@SuppressWarnings("unchecked")
 	public byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
 
-		// Calculate the Bounds of the Envelope from the zoomlevel, x-coordinate and
-		// y-coordinate of the tile.
-		// This Envelope is in EPSG:4326 CoordinateReferenceSystem.
+		/*
+		 * Calculate the Bounds of the Envelope from the zoomlevel, x-coordinate and
+		 * y-coordinate of the tile. This Envelope is in EPSG:4326
+		 * CoordinateReferenceSystem.
+		 */
 		Envelope envelope = EnvelopOps.getEnvelopeFromXYZ(zoomLevel, tileXCoord, tileYCoord);
 
 		// Convert it to the CoordinateReferenceSystem of the FeatureStore.
@@ -42,38 +45,30 @@ public class VectorTile {
 
 		// Get all the features that intersects with the bounding box.
 		FeatureCollection<? extends FeatureType, ? extends Feature> features = EnvelopOps.findAllFeaturesThatIntersects(featureStore, targetCRSEnvelope);
+		
 		features = new ReprojectingFeatureCollection((FeatureCollection<SimpleFeatureType, SimpleFeature>) features, CRS.decode("EPSG:3857",true));
 		FeatureIterator<?> iterator = features.features();
 		
 		envelope = EnvelopOps.changeEnvelopeCRS(envelope, CRS.decode("EPSG:3857",true));
-		
-		Map<String, String> attributes = new HashMap<>();
 
 		while (iterator.hasNext()) {
 			Feature feature = iterator.next();
 			Geometry geometry = (Geometry) feature.getDefaultGeometryProperty().getValue();
+			Map<String, String> attributes = new HashMap<String, String>();
 			
-	        final AffineTransformation t = new AffineTransformation();
-	        final double xDiff = envelope.getWidth();
-	        final double yDiff = envelope.getHeight();
+			// Transform the CRS of the geometry to pixel coordinates.
+	        AffineTransformation transform = new AffineTransformation();
+	        double xOffset = -envelope.getMinX();
+	        double yOffset = -envelope.getMinY();
 
-	        final double xOffset = -envelope.getMinX();
-	        final double yOffset = -envelope.getMinY();
-
-	        // Transform Setup: Shift to 0 as minimum value
-	        t.translate(xOffset, yOffset);
-
-	        // Transform Setup: Scale X and Y to tile extent values, flip Y values
-	        t.scale(1d / (xDiff / (double) 256),
-	                -1d / (yDiff / (double) 256));
-
-	        // Transform Setup: Bump Y values to positive quadrant
-	        t.translate(0d, (double) 256);
+	        transform.translate(xOffset, yOffset);
+	        transform.scale(1d / (envelope.getWidth() / (double) 256),
+	                -1d / (envelope.getHeight() / (double) 256));
+	        transform.translate(0d, (double) 256);
 	        
-	        geometry = t.transform(geometry);
+	        geometry = transform.transform(geometry);
 	        
 			Collection<Property> properties = feature.getProperties();
-
 			for (Property property : properties) {
 				if (property.getName().getLocalPart() != null && property.getValue() != null) {
 					attributes.put(property.getName().getLocalPart(), property.getValue().toString());
@@ -82,10 +77,10 @@ public class VectorTile {
 			
 			this.encoder.addFeature(this.featureStore.getName().getLocalPart(), attributes, geometry);
 			
-		
 		}
 		
 		return this.encoder.encode();
 	}
+	
 
 }

@@ -62,7 +62,6 @@ public class EnvelopOpsTests {
 		features = EnvelopOps.findAllFeaturesThatIntersects(dataStore.getFeatureSource(), test);
 		
 		assertTrue(features.size() == 0);
-		
 		dataStore.dispose();
 	}
 	
