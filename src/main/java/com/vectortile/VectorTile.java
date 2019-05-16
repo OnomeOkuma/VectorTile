@@ -79,6 +79,7 @@ public class VectorTile {
 			
 		}
 		
+		iterator.close();
 		return this.encoder.encode();
 	}
 	
