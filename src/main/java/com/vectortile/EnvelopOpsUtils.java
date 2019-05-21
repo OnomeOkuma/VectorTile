@@ -18,42 +18,46 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 
-public class EnvelopOps {
+public class EnvelopOpsUtils {
+	
+	public EnvelopOpsUtils() {
+		
+	}
+	
+	public Envelope getEnvelopeFromXYZ(int zoomLevel, int tileXcoord, int tileYcoord) {
 
-	public static Envelope getEnvelopeFromXYZ(int zoomLevel, int tileXcoord, int tileYcoord) {
+		final double newTileXminCoord = (tileXcoord / Math.pow(2, zoomLevel) * 360 - 180);
+		final double newTileXmaxCoord = ((tileXcoord + 1) / Math.pow(2, zoomLevel) * 360 - 180);
 
-		double newTileXminCoord = (tileXcoord / Math.pow(2, zoomLevel) * 360 - 180);
-		double newTileXmaxCoord = ((tileXcoord + 1) / Math.pow(2, zoomLevel) * 360 - 180);
-
-		double radiansToDegree = 180 / Math.PI;
+		final double radiansToDegree = 180 / Math.PI;
 		double value = Math.PI - 2 * Math.PI * tileYcoord / Math.pow(2, zoomLevel);
-		double newTileYminCoord = radiansToDegree * Math.atan(0.5 * (Math.exp(value) - Math.exp(-value)));
+		final double newTileYminCoord = radiansToDegree * Math.atan(0.5 * (Math.exp(value) - Math.exp(-value)));
 
 		value = Math.PI - 2 * Math.PI * (tileYcoord + 1) / Math.pow(2, zoomLevel);
-		double newTileYmaxCoord = radiansToDegree * Math.atan(0.5 * (Math.exp(value) - Math.exp(-value)));
+		final double newTileYmaxCoord = radiansToDegree * Math.atan(0.5 * (Math.exp(value) - Math.exp(-value)));
 
 		return new Envelope(newTileXminCoord, newTileXmaxCoord, newTileYminCoord, newTileYmaxCoord);
 
 	}
 
-	public static Envelope changeEnvelopeCRS(Envelope envelope, CoordinateReferenceSystem targetCRS)
+	public Envelope changeEnvelopeCRS(Envelope envelope, CoordinateReferenceSystem targetCRS)
 			throws NoSuchAuthorityCodeException, FactoryException, TransformException {
-		CoordinateReferenceSystem sourceCRS = CRS.decode("EPSG:4326", true);
-		MathTransform transform = CRS.findMathTransform(sourceCRS, targetCRS);
+		final CoordinateReferenceSystem sourceCRS = CRS.decode("EPSG:4326", true);
+		final MathTransform transform = CRS.findMathTransform(sourceCRS, targetCRS);
 
 		Envelope result = JTS.transform(envelope, transform);
 		return result;
 	}
 
-	public static FeatureCollection<? extends FeatureType, ? extends Feature> findAllFeaturesThatIntersects(FeatureSource<?, ?> featureSource,
+	public FeatureCollection<? extends FeatureType, ? extends Feature> findAllFeaturesThatIntersects(FeatureSource<?, ?> featureSource,
 			Envelope envelop) throws CQLException, IOException {
 
-		String geometricAttribute = featureSource.getSchema().getGeometryDescriptor().getLocalName();
+		final String geometricAttribute = featureSource.getSchema().getGeometryDescriptor().getLocalName();
 
-		String query = "BBOX(" + geometricAttribute + ", " + envelop.getMinX() + ", " + envelop.getMinY() + ", "
+		final String query = "BBOX(" + geometricAttribute + ", " + envelop.getMinX() + ", " + envelop.getMinY() + ", "
 				+ envelop.getMaxX() + ", " + envelop.getMaxY() + ")";
 
-		Filter filter = CQL.toFilter(query);
+		final Filter filter = CQL.toFilter(query);
 		return featureSource.getFeatures(filter);
 	}
 

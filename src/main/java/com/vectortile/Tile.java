@@ -20,52 +20,54 @@ import org.opengis.feature.type.FeatureType;
 
 import no.ecc.vectortile.VectorTileEncoder;
 
-public class VectorTile {
+public class Tile {
 
 	private FeatureSource<?, ?> featureStore;
 	private VectorTileEncoder encoder;
 
-	public VectorTile(FeatureSource<?, ?> featureStore) {
+	public Tile(FeatureSource<?, ?> featureStore) {
 		this.featureStore = featureStore;
 		this.encoder = new VectorTileEncoder();
 	}
 
 	@SuppressWarnings("unchecked")
-	public byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
-
+	public synchronized byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
+		
+		EnvelopOpsUtils utils = new EnvelopOpsUtils();
+		
 		/*
 		 * Calculate the Bounds of the Envelope from the zoomlevel, x-coordinate and
 		 * y-coordinate of the tile. This Envelope is in EPSG:4326
 		 * CoordinateReferenceSystem.
 		 */
-		Envelope envelope = EnvelopOps.getEnvelopeFromXYZ(zoomLevel, tileXCoord, tileYCoord);
+		Envelope envelope = utils.getEnvelopeFromXYZ(zoomLevel, tileXCoord, tileYCoord);
 
 		// Convert it to the CoordinateReferenceSystem of the FeatureStore.
-		Envelope targetCRSEnvelope = EnvelopOps.changeEnvelopeCRS(envelope, this.featureStore.getSchema().getCoordinateReferenceSystem());
+		Envelope targetCRSEnvelope = utils.changeEnvelopeCRS(envelope, this.featureStore.getSchema().getCoordinateReferenceSystem());
 
 		// Get all the features that intersects with the bounding box.
-		FeatureCollection<? extends FeatureType, ? extends Feature> features = EnvelopOps.findAllFeaturesThatIntersects(featureStore, targetCRSEnvelope);
+		FeatureCollection<? extends FeatureType, ? extends Feature> features = utils.findAllFeaturesThatIntersects(featureStore, targetCRSEnvelope);
 		
 		features = new ReprojectingFeatureCollection((FeatureCollection<SimpleFeatureType, SimpleFeature>) features, CRS.decode("EPSG:3857",true));
 		FeatureIterator<?> iterator = features.features();
 		
-		envelope = EnvelopOps.changeEnvelopeCRS(envelope, CRS.decode("EPSG:3857",true));
+		envelope = utils.changeEnvelopeCRS(envelope, CRS.decode("EPSG:3857",true));
+		
+		// Transform the CRS of the geometry to pixel coordinates.
+        final AffineTransformation transform = new AffineTransformation();
+        final double xOffset = -envelope.getMinX();
+        final double yOffset = -envelope.getMinY();
 
+        transform.translate(xOffset, yOffset);
+        transform.scale(1d / (envelope.getWidth() / (double) 256),
+                -1d / (envelope.getHeight() / (double) 256));
+        transform.translate(0d, (double) 256);
+        
 		while (iterator.hasNext()) {
 			Feature feature = iterator.next();
 			Geometry geometry = (Geometry) feature.getDefaultGeometryProperty().getValue();
 			Map<String, String> attributes = new HashMap<String, String>();
 			
-			// Transform the CRS of the geometry to pixel coordinates.
-	        AffineTransformation transform = new AffineTransformation();
-	        double xOffset = -envelope.getMinX();
-	        double yOffset = -envelope.getMinY();
-
-	        transform.translate(xOffset, yOffset);
-	        transform.scale(1d / (envelope.getWidth() / (double) 256),
-	                -1d / (envelope.getHeight() / (double) 256));
-	        transform.translate(0d, (double) 256);
-	        
 	        geometry = transform.transform(geometry);
 	        
 			Collection<Property> properties = feature.getProperties();
