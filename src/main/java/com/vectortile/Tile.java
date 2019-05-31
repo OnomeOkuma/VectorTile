@@ -23,17 +23,16 @@ import no.ecc.vectortile.VectorTileEncoder;
 public class Tile {
 
 	private FeatureSource<?, ?> featureStore;
-	private VectorTileEncoder encoder;
 
 	public Tile(FeatureSource<?, ?> featureStore) {
 		this.featureStore = featureStore;
-		this.encoder = new VectorTileEncoder();
 	}
 
 	@SuppressWarnings("unchecked")
 	public synchronized byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
 		
-		EnvelopOpsUtils utils = new EnvelopOpsUtils();
+		final VectorTileEncoder encoder = new VectorTileEncoder();
+		final EnvelopOpsUtils utils = new EnvelopOpsUtils();
 		
 		/*
 		 * Calculate the Bounds of the Envelope from the zoomlevel, x-coordinate and
@@ -77,12 +76,12 @@ public class Tile {
 				}
 			}
 			
-			this.encoder.addFeature(this.featureStore.getName().getLocalPart(), attributes, geometry);
+			encoder.addFeature(this.featureStore.getName().getLocalPart(), attributes, geometry);
 			
 		}
 		
 		iterator.close();
-		return this.encoder.encode();
+		return encoder.encode();
 	}
 	
 

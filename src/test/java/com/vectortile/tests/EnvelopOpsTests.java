@@ -68,6 +68,7 @@ public class EnvelopOpsTests {
 		
 		assertEquals(features.size(),17);
 		
+		//Source Envelope in EPSG:4326
 		test = new Envelope(3.1628, 3.2064, 6.4689, 6.4945);
 		features = utils.findAllFeaturesThatIntersects(dataStore.getFeatureSource(), test);
 		
