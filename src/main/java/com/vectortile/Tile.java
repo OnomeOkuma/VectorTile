@@ -4,10 +4,14 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.sql.DataSource;
+
+import org.geotools.data.DataStore;
 import org.geotools.data.FeatureSource;
 import org.geotools.data.store.ReprojectingFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
+import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Envelope;
 import org.locationtech.jts.geom.Geometry;
@@ -23,11 +27,20 @@ import no.ecc.vectortile.VectorTileEncoder;
 public class Tile {
 
 	private FeatureSource<?, ?> featureStore;
-
+	
+	private final DataStore datastore;
+	
 	public Tile(FeatureSource<?, ?> featureStore) {
 		this.featureStore = featureStore;
+		this.datastore = null;
 	}
-
+	
+	public Tile(DataSource datasource) {
+		JDBCDataStore datastore = new JDBCDataStore();
+		datastore.setDataSource(datasource);
+		this.datastore = datastore;
+	}
+	
 	@SuppressWarnings("unchecked")
 	public synchronized byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
 		
