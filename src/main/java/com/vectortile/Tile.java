@@ -1,5 +1,6 @@
 package com.vectortile;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -7,10 +8,10 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 import org.geotools.data.DataStore;
-import org.geotools.data.FeatureSource;
 import org.geotools.data.store.ReprojectingFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.geotools.feature.FeatureIterator;
+import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.jdbc.JDBCDataStore;
 import org.geotools.referencing.CRS;
 import org.locationtech.jts.geom.Envelope;
@@ -21,29 +22,33 @@ import org.opengis.feature.Property;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.feature.type.FeatureType;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.NoSuchAuthorityCodeException;
+import org.opengis.referencing.operation.TransformException;
 
 import no.ecc.vectortile.VectorTileEncoder;
 
 public class Tile {
-
-	private FeatureSource<?, ?> featureStore;
 	
 	private final DataStore datastore;
 	
-	public Tile(FeatureSource<?, ?> featureStore) {
-		this.featureStore = featureStore;
-		this.datastore = null;
-	}
+	private String featureName;
 	
-	public Tile(DataSource datasource) {
+	public Tile(DataSource datasource, String featureName) {
 		JDBCDataStore datastore = new JDBCDataStore();
 		datastore.setDataSource(datasource);
 		this.datastore = datastore;
+		this.featureName = featureName;
 	}
 	
+	
 	@SuppressWarnings("unchecked")
-	public synchronized byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws Exception {
-		
+	public synchronized byte[] getVectorTile(int zoomLevel, int tileXCoord, int tileYCoord) throws 
+																							NoSuchAuthorityCodeException
+																							, FactoryException
+																							, TransformException
+																							, IOException
+																							, CQLException{		
 		final VectorTileEncoder encoder = new VectorTileEncoder();
 		final EnvelopOpsUtils utils = new EnvelopOpsUtils();
 		
@@ -55,10 +60,10 @@ public class Tile {
 		Envelope envelope = utils.getEnvelopeFromXYZ(zoomLevel, tileXCoord, tileYCoord);
 
 		// Convert it to the CoordinateReferenceSystem of the FeatureStore.
-		Envelope targetCRSEnvelope = utils.changeEnvelopeCRS(envelope, this.featureStore.getSchema().getCoordinateReferenceSystem());
+		Envelope targetCRSEnvelope = utils.changeEnvelopeCRS(envelope, this.datastore.getSchema(this.featureName).getCoordinateReferenceSystem());
 
 		// Get all the features that intersects with the bounding box.
-		FeatureCollection<? extends FeatureType, ? extends Feature> features = utils.findAllFeaturesThatIntersects(featureStore, targetCRSEnvelope);
+		FeatureCollection<? extends FeatureType, ? extends Feature> features = utils.findAllFeaturesThatIntersects(this.datastore.getFeatureSource(this.featureName), targetCRSEnvelope);
 		
 		features = new ReprojectingFeatureCollection((FeatureCollection<SimpleFeatureType, SimpleFeature>) features, CRS.decode("EPSG:3857",true));
 		FeatureIterator<?> iterator = features.features();
@@ -89,8 +94,7 @@ public class Tile {
 				}
 			}
 			
-			encoder.addFeature(this.featureStore.getName().getLocalPart(), attributes, geometry);
-			
+			encoder.addFeature(this.featureName, attributes, geometry);
 		}
 		
 		iterator.close();
