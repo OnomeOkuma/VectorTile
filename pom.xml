@@ -10,7 +10,7 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<geotools.version>21.0</geotools.version>
+		<geotools.version>20.0</geotools.version>
 	</properties>
 	<dependencies>
 		<dependency>

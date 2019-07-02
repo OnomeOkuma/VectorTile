@@ -1,82 +1,99 @@
 package com.vectortile.tests;
 
 import java.io.IOException;
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.commons.dbcp.BasicDataSource;
+import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
-import org.geotools.data.FeatureReader;
-import org.geotools.data.FeatureSource;
-import org.geotools.data.FeatureStore;
-import org.geotools.data.FeatureWriter;
 import org.geotools.data.Transaction;
+import org.geotools.data.collection.ListFeatureCollection;
 import org.geotools.data.h2.H2Dialect;
 import org.geotools.data.h2.H2DialectBasic;
-import org.geotools.data.h2.H2DialectPrepared;
-import org.geotools.data.shapefile.ShapefileDataStore;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureSource;
-import org.geotools.data.store.ContentFeatureSource;
-import org.geotools.data.store.ContentFeatureStore;
-import org.geotools.feature.DefaultFeatureCollection;
-import org.geotools.feature.FeatureCollection;
-import org.geotools.jdbc.BasicSQLDialect;
+import org.geotools.data.simple.SimpleFeatureStore;
+import org.geotools.feature.SchemaException;
+import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.geometry.jts.JTSFactoryFinder;
 import org.geotools.jdbc.JDBCDataStore;
-import org.geotools.jdbc.PreparedStatementSQLDialect;
-import org.geotools.util.factory.Hints;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
-import org.opengis.feature.Feature;
+import org.locationtech.jts.geom.Point;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
-import org.opengis.feature.type.FeatureType;
-import org.opengis.feature.type.GeometryDescriptor;
 
 public class TileTest {
-	
+
 	private BasicDataSource datasource;
-	
+
 	@Before
-	public void setUp() throws IOException {
+	public void setUp() throws IOException, SchemaException {
 		datasource = new BasicDataSource();
 		datasource.setDriverClassName("org.h2.Driver");
-		datasource.setUrl("jdbc:h2:mem:TileTest;DB_CLOSE_DELAY=-1");
+		datasource.setUrl("jdbc:h2:mem:Tile;DB_CLOSE_DELAY=-1;MODE=Oracle");
 		datasource.setUsername("sa");
-		
-		URL file = getClass().getClassLoader().getResource("Building3.shp");
-		
-		ShapefileDataStore store = new ShapefileDataStore(file);
-		
 		JDBCDataStore datastore = new JDBCDataStore();
-		datastore.setSQLDialect(new H2Dialect(datastore));
 		datastore.setDataSource(datasource);
-		datastore.createSchema(store.getSchema());
+		H2DialectBasic dialect = new H2DialectBasic(datastore);
+		datastore.setSQLDialect(dialect);
 		
-		Transaction transaction = new DefaultTransaction();
-		
-		ContentFeatureStore featureStore = (ContentFeatureStore) datastore.getFeatureSource(store.getSchema().getTypeName());
-		FeatureReader<SimpleFeatureType, SimpleFeature> reader = store.getFeatureReader();
-		DefaultFeatureCollection collection = new DefaultFeatureCollection();
-		
-		while(reader.hasNext()) {
-			SimpleFeature feature = reader.next();
-			collection.add(feature);
-			
+		final SimpleFeatureType TYPE = DataUtilities.createType("Location",
+				"the_geom:Point:srid=4326," + "name:String," + "number:Integer");
+
+		datastore.createSchema(TYPE);
+		List<SimpleFeature> features = new ArrayList<SimpleFeature>();
+		GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory();
+		SimpleFeatureBuilder featureBuilder = new SimpleFeatureBuilder(TYPE);
+		double initialLongitude = 3.567;
+		double initialLatitude = 6.543;
+
+		// Create 10 features.
+		for (int i = 0; i < 10; i++) {
+			double latitude = initialLatitude + 0.2;
+			double longitude = initialLongitude + 0.2;
+			initialLongitude = longitude;
+			initialLatitude = latitude;
+			Point point = geometryFactory.createPoint(new Coordinate(longitude, latitude));
+
+			featureBuilder.add(point);
+			featureBuilder.add("one point");
+			featureBuilder.add("Another point");
+			SimpleFeature feature = featureBuilder.buildFeature(null);
+			features.add(feature);
 		}
-		
-		featureStore.addFeatures((FeatureCollection<SimpleFeatureType, SimpleFeature>)collection);
-		transaction.commit();
+
+		Transaction transaction = new DefaultTransaction("create");
+
+		String typeName = datastore.getTypeNames()[0];
+		SimpleFeatureSource featureSource = datastore.getFeatureSource(typeName);
+		SimpleFeatureType SHAPE_TYPE = featureSource.getSchema();
+		System.out.println("SHAPE:" + SHAPE_TYPE);
+
+		if (featureSource instanceof SimpleFeatureStore) {
+			SimpleFeatureStore featureStore = (SimpleFeatureStore) featureSource;
+			SimpleFeatureCollection collection = new ListFeatureCollection(TYPE, features);
+			featureStore.setTransaction(transaction);
+			try {
+				featureStore.addFeatures(collection);
+				transaction.commit();
+			} catch (Exception problem) {
+				problem.printStackTrace();
+				transaction.rollback();
+			} finally {
+				transaction.close();
+			}
+		} else {
+			System.out.println(typeName + " does not support read/write access");
+		}
+
 	}
-	
+
 	@Test
 	public void test() {
-		
+
 	}
 }
