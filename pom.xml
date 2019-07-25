@@ -10,7 +10,7 @@
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<geotools.version>20.0</geotools.version>
+		<geotools.version>22-SNAPSHOT</geotools.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -48,7 +48,6 @@
 			<groupId>org.geotools.jdbc</groupId>
 			<artifactId>gt-jdbc-h2</artifactId>
 			<version>${geotools.version}</version>
-			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>no.ecc.vectortile</groupId>

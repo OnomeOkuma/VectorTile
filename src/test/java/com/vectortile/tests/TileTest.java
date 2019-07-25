@@ -1,6 +1,8 @@
 package com.vectortile.tests;
 
+import static org.junit.Assert.*;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,13 +11,13 @@ import org.geotools.data.DataUtilities;
 import org.geotools.data.DefaultTransaction;
 import org.geotools.data.Transaction;
 import org.geotools.data.collection.ListFeatureCollection;
-import org.geotools.data.h2.H2Dialect;
 import org.geotools.data.h2.H2DialectBasic;
 import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.data.simple.SimpleFeatureSource;
 import org.geotools.data.simple.SimpleFeatureStore;
 import org.geotools.feature.SchemaException;
 import org.geotools.feature.simple.SimpleFeatureBuilder;
+import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.geometry.jts.JTSFactoryFinder;
 import org.geotools.jdbc.JDBCDataStore;
 import org.junit.Before;
@@ -25,6 +27,11 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
+import org.opengis.referencing.FactoryException;
+import org.opengis.referencing.NoSuchAuthorityCodeException;
+import org.opengis.referencing.operation.TransformException;
+
+import com.vectortile.Tile;
 
 public class TileTest {
 
@@ -34,7 +41,7 @@ public class TileTest {
 	public void setUp() throws IOException, SchemaException {
 		datasource = new BasicDataSource();
 		datasource.setDriverClassName("org.h2.Driver");
-		datasource.setUrl("jdbc:h2:mem:Tile;DB_CLOSE_DELAY=-1;MODE=Oracle");
+		datasource.setUrl("jdbc:h2:mem:Til;DB_CLOSE_DELAY=-1");
 		datasource.setUsername("sa");
 		JDBCDataStore datastore = new JDBCDataStore();
 		datastore.setDataSource(datasource);
@@ -61,7 +68,7 @@ public class TileTest {
 
 			featureBuilder.add(point);
 			featureBuilder.add("one point");
-			featureBuilder.add("Another point");
+			featureBuilder.add(initialLongitude);
 			SimpleFeature feature = featureBuilder.buildFeature(null);
 			features.add(feature);
 		}
@@ -70,8 +77,6 @@ public class TileTest {
 
 		String typeName = datastore.getTypeNames()[0];
 		SimpleFeatureSource featureSource = datastore.getFeatureSource(typeName);
-		SimpleFeatureType SHAPE_TYPE = featureSource.getSchema();
-		System.out.println("SHAPE:" + SHAPE_TYPE);
 
 		if (featureSource instanceof SimpleFeatureStore) {
 			SimpleFeatureStore featureStore = (SimpleFeatureStore) featureSource;
@@ -79,21 +84,22 @@ public class TileTest {
 			featureStore.setTransaction(transaction);
 			try {
 				featureStore.addFeatures(collection);
-				transaction.commit();
+				transaction.commit();	
 			} catch (Exception problem) {
 				problem.printStackTrace();
 				transaction.rollback();
 			} finally {
 				transaction.close();
 			}
-		} else {
-			System.out.println(typeName + " does not support read/write access");
 		}
-
 	}
 
 	@Test
-	public void test() {
-
+	public void test() throws NoSuchAuthorityCodeException, CQLException, FactoryException, TransformException, IOException{		
+		
+		Tile tile = new Tile(datasource, "Location");
+		byte[] encodedResult = tile.getVectorTile(0, 0, 0);
+		assertNotEquals(encodedResult.length, 0);
+	
 	}
 }
