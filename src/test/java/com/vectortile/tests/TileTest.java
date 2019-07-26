@@ -41,7 +41,7 @@ public class TileTest {
 	public void setUp() throws IOException, SchemaException {
 		datasource = new BasicDataSource();
 		datasource.setDriverClassName("org.h2.Driver");
-		datasource.setUrl("jdbc:h2:mem:Til;DB_CLOSE_DELAY=-1");
+		datasource.setUrl("jdbc:h2:mem:Tile;DB_CLOSE_DELAY=-1");
 		datasource.setUsername("sa");
 		JDBCDataStore datastore = new JDBCDataStore();
 		datastore.setDataSource(datasource);
